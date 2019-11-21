@@ -34,9 +34,15 @@ class MachOParserTests: XCTestCase {
                     XCTAssertEqual(context.segment.cmdsize, UInt32(context.totalSize))
                     segmentContext = nil
                 }
+                let name = withUnsafeBytes(of: section.sectname) { ptr in
+                    String(cString: ptr.bindMemory(to: CChar.self).baseAddress!)
+                }
+                print(name)
             }
             
             func visit(_ section: section) {}
+            
+            func visit(_ command: symtab_command) {}
 
             func visit<LC: LoadCommand>(_ command: LC) {
                 print(type(of: command))

@@ -118,7 +118,7 @@ class MachOSegmentParser {
     
     init(segment_command: UnsafeRawPointer, is64Bit: Bool) {
         self.cmd = segment_command.load(as: segment_command_64.self)
-        self.fp = UnsafeRawPointer(segment_command)
+        self.fp = UnsafeRawPointer(segment_command).advanced(by: is64Bit ? MemoryLayout<segment_command_64>.size : MemoryLayout<segment_command>.size)
         self.is64Bit = is64Bit
     }
     
