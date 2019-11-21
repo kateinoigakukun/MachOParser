@@ -4,6 +4,15 @@ import XCTest
 class MachOParserTests: XCTestCase {
     func testParseHeader() {
         class Visitor: MachOVisitor {
+            class SegmentContext {
+                let segment: segment_command_64
+                var totalSize: Int = MemoryLayout<segment_command_64>.size
+                var count: UInt32 = 0
+                init(_ segment: segment_command_64) { self.segment = segment }
+            }
+            
+            var segmentContext: SegmentContext?
+            
             func visit(_ header: mach_header) {
                 XCTAssertEqual(header.magic, MH_MAGIC)
             }
@@ -11,6 +20,23 @@ class MachOParserTests: XCTestCase {
             func visit(_ header: mach_header_64) {
                 XCTAssertEqual(header.magic, MH_MAGIC_64)
             }
+            
+            func visit(_ command: segment_command_64) {
+                XCTAssertNil(segmentContext)
+                segmentContext = SegmentContext(command)
+            }
+            
+            func visit(_ section: section_64) {
+                guard let context = segmentContext else { XCTFail(); return }
+                context.count += 1
+                context.totalSize += MemoryLayout<section_64>.size
+                if context.count == context.segment.nsects {
+                    XCTAssertEqual(context.segment.cmdsize, UInt32(context.totalSize))
+                    segmentContext = nil
+                }
+            }
+            
+            func visit(_ section: section) {}
 
             func visit<LC: LoadCommand>(_ command: LC) {
                 print(type(of: command))

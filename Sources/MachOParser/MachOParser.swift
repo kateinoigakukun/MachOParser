@@ -100,7 +100,7 @@ public class MachOParser {
             guard let cmd_t = dispatchTable[ld_cmd.cmd] else {
                 fatalError()
             }
-            cmd_t.load(ptr).accept(visitor: visitor)
+            cmd_t.load(ptr).accept(visitor: visitor, ptr: ptr)
             offset += UInt64(ld_cmd.cmdsize)
         }
     }
@@ -108,5 +108,32 @@ public class MachOParser {
     private func advance<T>(_: T.Type) {
         let size = UInt64(MemoryLayout<T>.size)
         offset += size
+    }
+}
+
+class MachOSegmentParser {
+    let fp: UnsafeRawPointer
+    let cmd: segment_command_64
+    let is64Bit: Bool
+    
+    init(segment_command: UnsafeRawPointer, is64Bit: Bool) {
+        self.cmd = segment_command.load(as: segment_command_64.self)
+        self.fp = UnsafeRawPointer(segment_command)
+        self.is64Bit = is64Bit
+    }
+    
+    func parse<V: MachOVisitor>(visitor: V) {
+        var p = fp
+        for _ in 0..<cmd.nsects {
+            if is64Bit {
+                let sec = p.load(as: section_64.self)
+                visitor.visit(sec)
+                p = p.advanced(by: MemoryLayout<section_64>.size)
+            } else {
+                let sec = p.load(as: section.self)
+                visitor.visit(sec)
+                p = p.advanced(by: MemoryLayout<section>.size)
+            }
+        }
     }
 }
