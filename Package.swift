@@ -5,6 +5,9 @@ import PackageDescription
 
 let package = Package(
     name: "MachOParser",
+    products: [
+        .library(name: "MachOParser", targets: ["MachOParser"]),
+    ],
     dependencies: [],
     targets: [
         .target(
