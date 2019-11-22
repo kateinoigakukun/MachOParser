@@ -10,8 +10,13 @@ class MachOParserTests: XCTestCase {
                 var count: UInt32 = 0
                 init(_ segment: segment_command_64) { self.segment = segment }
             }
-            
+
+            let fp: UnsafeRawPointer
             var segmentContext: SegmentContext?
+
+            init(_ fp: UnsafeRawPointer) {
+                self.fp = fp
+            }
             
             func visit(_ header: mach_header) {
                 XCTAssertEqual(header.magic, MH_MAGIC)
@@ -34,10 +39,11 @@ class MachOParserTests: XCTestCase {
                     XCTAssertEqual(context.segment.cmdsize, UInt32(context.totalSize))
                     segmentContext = nil
                 }
-                let name = withUnsafeBytes(of: section.sectname) { ptr in
-                    String(cString: ptr.bindMemory(to: CChar.self).baseAddress!)
-                }
-                print(name)
+                let segname = String(fixedLengthString: section.segname)
+                let sectname = String(fixedLengthString: section.sectname)
+                print(segname)
+                print(sectname)
+                print(section)
             }
             
             func visit(_ section: section) {}
@@ -49,8 +55,16 @@ class MachOParserTests: XCTestCase {
             }
         }
         let url = fixtures.appendingPathComponent("hello.o").path
-        let parser = MachOParser(NSData(contentsOfFile: url)!.bytes)
-        let visitor = Visitor()
+        let fp = NSData(contentsOfFile: url)!.bytes
+        let parser = MachOParser(fp)
+        let visitor = Visitor(fp)
         parser.parse(with: visitor)
+    }
+
+    func testFixedLengthString() {
+        let chars: (CChar, CChar, CChar, CChar, CChar, CChar)
+            = (0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x00)
+        let value = String(fixedLengthString: chars)
+        XCTAssertEqual(value, "hello")
     }
 }
