@@ -23,29 +23,31 @@ class MachOParserTests: XCTestCase {
 
             var actualCommandSize: UInt32 = 0
 
+            var symbolTable: [String] = []
+
             init(_ fp: UnsafeRawPointer) {
                 self.fp = fp
             }
             
-            func visit(_ header: mach_header) {
-                XCTAssertEqual(header.magic, MH_MAGIC)
+            func visit(_ header: UnsafePointer<mach_header>) {
+                XCTAssertEqual(header.pointee.magic, MH_MAGIC)
             }
 
-            func visit(_ header: mach_header_64) {
-                XCTAssertEqual(header.magic, MH_MAGIC_64)
-                commandSize = header.sizeofcmds
+            func visit(_ header: UnsafePointer<mach_header_64>) {
+                XCTAssertEqual(header.pointee.magic, MH_MAGIC_64)
+                commandSize = header.pointee.sizeofcmds
             }
             
-            func visit(_ command: segment_command_64) {
+            func visit(_ command: UnsafePointer<segment_command_64>) {
                 // For compactness, intermediate object files doesn't have name
-                XCTAssertTrue(String(fixedLengthString: command.segname).isEmpty)
+                XCTAssertTrue(String(fixedLengthString: command.pointee.segname).isEmpty)
                 XCTAssertNil(segmentContext)
-                segmentContext = SegmentContext(command)
-                segments.append(command)
-                actualCommandSize += command.cmdsize
+                segmentContext = SegmentContext(command.pointee)
+                segments.append(command.pointee)
+                actualCommandSize += command.pointee.cmdsize
             }
             
-            func visit(_ section: section_64) {
+            func visit(_ section: UnsafePointer<section_64>) {
                 guard let context = segmentContext else { XCTFail(); return }
                 context.count += 1
                 context.totalSize += MemoryLayout<section_64>.size
@@ -53,51 +55,51 @@ class MachOParserTests: XCTestCase {
                     XCTAssertEqual(context.segment.cmdsize, UInt32(context.totalSize))
                     segmentContext = nil
                 }
-                sections.append(section)
+                sections.append(section.pointee)
 
-                let type = section.flags & UInt32(SECTION_TYPE)
+                let type = section.pointee.flags & UInt32(SECTION_TYPE)
 
                 XCTAssertNotEqual(type, UInt32(S_NON_LAZY_SYMBOL_POINTERS))
-                var relocPtr = fp.advanced(by: Int(section.reloff))
+                var relocPtr = fp.advanced(by: Int(section.pointee.reloff))
                 var relocInfo: [relocation_info] = []
-                for _ in 0..<section.nreloc {
+                for _ in 0..<section.pointee.nreloc {
                     let info = relocPtr.load(as: relocation_info.self)
                     relocInfo.append(info)
                     relocPtr = relocPtr.advanced(by: MemoryLayout<relocation_info>.size)
                 }
-                relocationInfoBySection[String(fixedLengthString: section.sectname)] = relocInfo
+                relocationInfoBySection[String(fixedLengthString: section.pointee.sectname)] = relocInfo
             }
             
-            func visit(_ section: section) {}
+            func visit(_ section: UnsafePointer<section>) {}
 
-            func visit(_ command: symtab_command) {
-                symbolTableSize = command.strsize + UInt32(MemoryLayout<nlist_64>.size) * command.nsyms
-                actualCommandSize += command.cmdsize
+            func visit(_ command: UnsafePointer<symtab_command>) {
+                symbolTableSize = command.pointee.strsize + UInt32(MemoryLayout<nlist_64>.size) * command.pointee.nsyms
+                actualCommandSize += command.pointee.cmdsize
 
-                let stringsPtr = fp.advanced(by: Int(command.stroff))
-                var symPtr = fp.advanced(by: Int(command.symoff))
-                for _ in 0..<command.nsyms {
+                let stringsPtr = fp.advanced(by: Int(command.pointee.stroff))
+                var symPtr = fp.advanced(by: Int(command.pointee.symoff))
+                for _ in 0..<command.pointee.nsyms {
                     let sym = symPtr.load(as: nlist_64.self)
                     let name = stringsPtr
                         .advanced(by: Int(sym.n_un.n_strx) * MemoryLayout<CChar>.size)
                         .assumingMemoryBound(to: CChar.self)
                     let str = String(cString: name)
-                    print(str)
+                    symbolTable.append(str)
                     symPtr = symPtr.advanced(by: MemoryLayout<nlist_64>.size)
                 }
             }
 
-            func visit(_ command: dysymtab_command) {
-                actualCommandSize += command.cmdsize
+            func visit(_ command: UnsafePointer<dysymtab_command>) {
+                actualCommandSize += command.pointee.cmdsize
             }
 
-            func visit(_ command: build_version_command) {
-                command.
-            }
-
-            func visit<LC: LoadCommand>(_ command: LC) {
+            func visit<LC: LoadCommand>(_ command: UnsafePointer<LC>) {
                 print(type(of: command))
-                actualCommandSize += command.cmdsize
+                actualCommandSize += command.pointee.cmdsize
+            }
+
+            func visit(_ command: UnsafePointer<linker_option_command>) {
+                command
             }
         }
         let url = fixtures.appendingPathComponent("hello.o").path
