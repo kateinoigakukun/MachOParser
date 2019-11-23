@@ -15,6 +15,7 @@ public protocol MachOVisitor {
     func visit(_ command: fvmlib_command)
     func visit(_ command: ident_command)
     func visit(_ command: linkedit_data_command)
+    func visit(_ command: linker_option_command)
     func visit(_ command: load_command)
     func visit(_ command: note_command)
     func visit(_ command: prebind_cksum_command)
@@ -85,6 +86,9 @@ extension ident_command: LoadCommand {
     public func accept<V>(visitor: V, ptr: UnsafeRawPointer) where V : MachOVisitor { visitor.visit(self) }
 }
 extension linkedit_data_command: LoadCommand {
+    public func accept<V>(visitor: V, ptr: UnsafeRawPointer) where V : MachOVisitor { visitor.visit(self) }
+}
+extension linker_option_command: LoadCommand {
     public func accept<V>(visitor: V, ptr: UnsafeRawPointer) where V : MachOVisitor { visitor.visit(self) }
 }
 extension load_command: LoadCommand {

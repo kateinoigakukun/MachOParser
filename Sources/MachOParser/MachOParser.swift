@@ -87,7 +87,7 @@ public class MachOParser {
             UInt32(LC_SOURCE_VERSION): source_version_command.self,
             UInt32(LC_DYLIB_CODE_SIGN_DRS): linkedit_data_command.self,
             UInt32(LC_ENCRYPTION_INFO_64): encryption_info_command_64.self,
-            UInt32(LC_LINKER_OPTION): linkedit_data_command.self,
+            UInt32(LC_LINKER_OPTION): linker_option_command.self,
             UInt32(LC_LINKER_OPTIMIZATION_HINT): linkedit_data_command.self,
             UInt32(LC_VERSION_MIN_TVOS): version_min_command.self,
             UInt32(LC_VERSION_MIN_WATCHOS): version_min_command.self,
@@ -100,6 +100,7 @@ public class MachOParser {
             guard let cmd_t = dispatchTable[ld_cmd.cmd] else {
                 fatalError()
             }
+            print("ld_cmd.cmd == ", ld_cmd.cmd)
             cmd_t.load(ptr).accept(visitor: visitor, ptr: ptr)
             offset += UInt64(ld_cmd.cmdsize)
         }
